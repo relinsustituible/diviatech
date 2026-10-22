@@ -29,7 +29,7 @@ export class CloudflareStreamService {
         },
       );
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
       if (data?.success && data?.result?.uid) {
         return data.result.uid;
       }
@@ -54,7 +54,7 @@ export class CloudflareStreamService {
         },
       );
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
       if (data?.success && data?.result?.rtmps) {
         return {
           url: data.result.rtmps.url,
