@@ -1,9 +1,10 @@
-name = "divia"
-main = "src/workers/index.ts"
-compatibility_date = "2024-10-01"
+name = "diviatech"
+main = "src/worker.js"
+compatibility_date = "2026-10-21"
+compatibility_flags = [ "nodejs_compat" ]
 
 [vars]
-CLOUDFLARE_ACCOUNT_ID = "a582a92c2bdec6ef5bc9cb633febc66e"
+ENVIRONMENT = "production"
 JWT_SECRET = "change_this_to_a_secure_random_secret"
 NEXT_PUBLIC_APP_NAME = "Divia"
 
@@ -15,6 +16,3 @@ database_id = "4f9d66fa-7de4-4541-9540-1c49063a6f39"
 [[kv_namespaces]]
 binding = "SESSIONS"
 id = "04d28c8978d64818a1bae349da1c3697"
-
-# Cloudflare Stream credentials should be configured from the Cloudflare dashboard
-# or via `wrangler secret put` / environment variables in your deployment.
