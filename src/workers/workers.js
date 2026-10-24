@@ -327,7 +327,7 @@ function getCompleteWebAppHTML() {
           </div>
           <div>
             <label class="block text-slate-400 mb-1">Motivo de Consulta / Síntomas</label>
-            <textarea id="patient-symptoms" rows="3" placeholder="Describa su cuadro clínico..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 outline-none focus:border-emerald-500 resize-none" required></textarea>
+            <textarea id="patient-symptoms" rows="3" placeholder="Describa su cuadro clínico..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-slate-100 outline-none focus:border-emerald-500" required></textarea>
           </div>
           <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition">
             Enviar Anamnesis al Sistema
@@ -342,7 +342,7 @@ function getCompleteWebAppHTML() {
         <h4 class="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider">Consola de Respuestas de la API Worker</h4>
         <button onclick="clearConsole()" class="text-[11px] text-slate-500 hover:text-slate-300">Limpiar</button>
       </div>
-      <pre id="api-console" class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-emerald-400 max-h-48 overflow-auto leading-relaxed whitespace-pre-wrap">Conectando con el Worker Edge...</pre>
+      <pre id="api-console" class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-emerald-400 max-h-48 overflow-auto leading-relaxed whitespace-pre-wrap">Conectando con el Worker...</pre>
     </section>
 
   </main>
@@ -383,15 +383,15 @@ function getCompleteWebAppHTML() {
 
     function switchTab(tabName) {
       ['home', 'telemedicine', 'professional', 'patient'].forEach(tab => {
-        document.getElementById(\`view-\${tab}\`).classList.add('hidden');
-        const btn = document.getElementById(\`tab-\${tab}\`);
+        document.getElementById(`view-${tab}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-${tab}`);
         if(btn) {
           btn.classList.remove('text-emerald-400', 'bg-slate-900', 'border', 'border-slate-800');
           btn.classList.add('text-slate-400');
         }
       });
-      document.getElementById(\`view-\${tabName}\`).classList.remove('hidden');
-      const activeBtn = document.getElementById(\`tab-\${tabName}\`);
+      document.getElementById(`view-${tabName}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-${tabName}`);
       if(activeBtn) {
         activeBtn.classList.add('text-emerald-400', 'bg-slate-900', 'border', 'border-slate-800');
         activeBtn.classList.remove('text-slate-400');
@@ -400,7 +400,7 @@ function getCompleteWebAppHTML() {
 
     async function checkHealth() {
       try {
-        const res = await fetch(\`/api/health\`);
+        const res = await fetch(`/api/health`);
         const data = await res.json();
         if(res.ok) {
           connectionDot.className = "w-3 h-3 rounded-full bg-emerald-500 animate-pulse";
@@ -411,7 +411,7 @@ function getCompleteWebAppHTML() {
       } catch (err) {
         connectionDot.className = "w-3 h-3 rounded-full bg-rose-500";
         nodeStatus.textContent = "Error";
-        logConsole(\`Error de conexión: \${err.message}\`);
+        logConsole(`Error de conexión: ${err.message}`);
       }
     }
 
@@ -423,7 +423,7 @@ function getCompleteWebAppHTML() {
       const email = document.getElementById("auth-email").value;
       const password = document.getElementById("auth-password").value;
       try {
-        const res = await fetch(\`/api/auth/login\`, {
+        const res = await fetch(`/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password })
@@ -431,7 +431,7 @@ function getCompleteWebAppHTML() {
         const data = await res.json();
         logConsole(data);
         closeAuthModal();
-      } catch (err) { logConsole(\`Error: \${err.message}\`); }
+      } catch (err) { logConsole(`Error: ${err.message}`); }
     }
 
     async function handleVitalsSubmit(e) {
@@ -440,14 +440,14 @@ function getCompleteWebAppHTML() {
       const hr = document.getElementById("vital-hr").value;
       const spo2 = document.getElementById("vital-spo2").value;
       try {
-        const res = await fetch(\`/api/consultations/vital-signs\`, {
+        const res = await fetch(`/api/consultations/vital-signs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ bp, hr: Number(hr), spo2: Number(spo2) })
         });
         const data = await res.json();
         logConsole(data);
-      } catch (err) { logConsole(\`Error: \${err.message}\`); }
+      } catch (err) { logConsole(`Error: ${err.message}`); }
     }
 
     async function handleAnamnesisSubmit(e) {
@@ -456,54 +456,54 @@ function getCompleteWebAppHTML() {
       const age = document.getElementById("patient-age").value;
       const symptoms = document.getElementById("patient-symptoms").value;
       try {
-        const res = await fetch(\`/api/telemedicine/anamnesis\`, {
+        const res = await fetch(`/api/telemedicine/anamnesis`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ patientName, age: Number(age), symptoms })
         });
         const data = await res.json();
         logConsole(data);
-      } catch (err) { logConsole(\`Error: \${err.message}\`); }
+      } catch (err) { logConsole(`Error: ${err.message}`); }
     }
 
     async function fetchWaitingList() {
       try {
-        const res = await fetch(\`/api/consultations/waiting-list\`);
+        const res = await fetch(`/api/consultations/waiting-list`);
         const data = await res.json();
         logConsole(data);
         if(data.waitingList) {
           const container = document.getElementById("waiting-list-container");
-          container.innerHTML = data.waitingList.map(p => \`
+          container.innerHTML = data.waitingList.map(p => `
             <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex justify-between items-center">
               <div>
-                <strong class="text-slate-100">\${p.patientName}</strong> (Edad: \${p.age})
-                <p class="text-slate-400">\${p.symptoms}</p>
+                <strong class="text-slate-100">${p.patientName}</strong> (Edad: ${p.age})
+                <p class="text-slate-400">${p.symptoms}</p>
               </div>
-              <span class="bg-amber-950 text-amber-300 px-2 py-1 rounded text-[10px]">\${p.priority || 'media'}</span>
+              <span class="bg-amber-950 text-amber-300 px-2 py-1 rounded text-[10px]">${p.priority || 'media'}</span>
             </div>
-          \`).join('');
+          `).join('');
         }
-      } catch (err) { logConsole(\`Error: \${err.message}\`); }
+      } catch (err) { logConsole(`Error: ${err.message}`); }
     }
 
     async function createStreamSession() {
       try {
-        const res = await fetch(\`/api/stream/create\`, { method: "POST" });
+        const res = await fetch(`/api/stream/create`, { method: "POST" });
         const data = await res.json();
         logConsole(data);
-      } catch (err) { logConsole(\`Error: \${err.message}\`); }
+      } catch (err) { logConsole(`Error: ${err.message}`); }
     }
 
     async function sendAudioProcess() {
       try {
-        const res = await fetch(\`https://diviatech.xear-div.workers.dev/api/audio/process\`, {
+        const res = await fetch(`/api/audio/process`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ preset: "Fibonacci-13B" })
+          body: JSON.stringify({ preset: "Fibonacci-13B", sampleRate: 192000 })
         });
         const data = await res.json();
         logConsole(data);
-      } catch (err) { logConsole(\`Error: \${err.message}\`); }
+      } catch (err) { logConsole(`Error: ${err.message}`); }
     }
 
     checkHealth();
