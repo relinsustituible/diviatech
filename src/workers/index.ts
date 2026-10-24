@@ -29,6 +29,10 @@ interface CreateLiveInputBody {
   consultation_id: string;
 }
 
+interface CloudflareStreamResponse {
+  result?: unknown;
+}
+
 interface TriageBody {
   symptoms: string;
   history: string;
@@ -162,13 +166,13 @@ router.post('/api/stream/create-live-input', async (req: Request, env: Env) => {
       }),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as CloudflareStreamResponse;
 
     if (!response.ok) {
       throw new Error(JSON.stringify(data));
     }
 
-    return new Response(JSON.stringify(data.result), {
+    return new Response(JSON.stringify(data.result ?? {}), {
       status: 201,
       headers: defaultHeaders(allowOrigin(req, env)),
     });
