@@ -1,290 +1,202 @@
 import { Router } from 'itty-router';
 
 interface Env {
+  ENVIRONMENT: string;
   DB: D1Database;
   SESSIONS: KVNamespace;
   CACHE: KVNamespace;
+  AI: any;
+  JWT_SECRET: string;
   STREAM_ACCOUNT_ID: string;
   STREAM_API_TOKEN: string;
+  ALLOWED_ORIGINS: string;
+  NEXT_PUBLIC_API_URL?: string;
 }
 
 const router = Router();
 
-// Health check
-router.get('/api/health', () => {
-  return new Response(JSON.stringify({ status: 'ok' }), {
-    headers: { 'Content-Type': 'application/json' },
+const defaultHeaders = (origin?: string | null) => ({
+  'Access-Control-Allow-Origin': origin ?? '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Content-Type': 'application/json',
+});
+
+const allowOrigin = (req: Request, env: Env) => {
+  const origin = req.headers.get('Origin');
+  const allowed = (env.ALLOWED_ORIGINS ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+  if (!origin) return '*';
+  if (allowed.includes(origin)) return origin;
+  return allowed[0] ?? '*';
+};
+
+router.options('*', (req: Request, env: Env) => {
+  return new Response(null, {
+    status: 204,
+    headers: defaultHeaders(allowOrigin(req, env)),
   });
 });
 
-// Consultation endpoints
-router.post('/api/consultations/create', async (req: Request, env: Env) => {
+router.get('/api/health', (req: Request, env: Env) => {
+  return new Response(JSON.stringify({ status: 'ok', environment: env.ENVIRONMENT || 'production' }), {
+    headers: defaultHeaders(allowOrigin(req, env)),
+  });
+});
+
+router.post('/api/auth/login', async (req: Request, env: Env) => {
   try {
-    const body = await req.json();
-    const { patient_id, doctor_id, nurse_id, scheduled_at } = body;
+    const { email, password } = await req.json();
 
-    const consultation_id = crypto.randomUUID();
-    
-    const stmt = env.DB.prepare(
-      `INSERT INTO consultations (id, patient_id, doctor_id, nurse_id, scheduled_at, status) 
-       VALUES (?, ?, ?, ?, ?, 'scheduled')`
-    );
-    
-    await stmt.bind(consultation_id, patient_id, doctor_id, nurse_id, scheduled_at).run();
+    if (!email || !password) {
+      return new Response(JSON.stringify({ error: 'Email y password son requeridos.' }), {
+        status: 400,
+        headers: defaultHeaders(allowOrigin(req, env)),
+      });
+    }
 
-    return new Response(JSON.stringify({ id: consultation_id }), {
-      headers: { 'Content-Type': 'application/json' },
+    const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Usuario no encontrado.' }), {
+        status: 401,
+        headers: defaultHeaders(allowOrigin(req, env)),
+      });
+    }
+
+    const token = btoa(JSON.stringify({ sub: user.id, email: user.email, role: user.user_type }));
+
+    return new Response(JSON.stringify({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        user_type: user.user_type,
+      },
+    }), {
+      status: 200,
+      headers: defaultHeaders(allowOrigin(req, env)),
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: defaultHeaders(allowOrigin(req, env)),
+    });
+  }
+});
+
+router.get('/api/consultations', async (req: Request, env: Env) => {
+  try {
+    const { results } = await env.DB.prepare('SELECT * FROM consultations ORDER BY created_at DESC LIMIT 50').all();
+
+    return new Response(JSON.stringify(results), {
+      status: 200,
+      headers: defaultHeaders(allowOrigin(req, env)),
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: defaultHeaders(allowOrigin(req, env)),
+    });
+  }
+});
+
+router.post('/api/consultations', async (req: Request, env: Env) => {
+  try {
+    const { patient_id, professional_id, consultation_type, scheduled_at } = await req.json();
+    const id = crypto.randomUUID();
+
+    await env.DB.prepare(`
+      INSERT INTO consultations (id, patient_id, professional_id, consultation_type, status, scheduled_at)
+      VALUES (?, ?, ?, ?, 'waiting', ?)
+    `).bind(id, patient_id, professional_id, consultation_type, scheduled_at).run();
+
+    return new Response(JSON.stringify({ id, status: 'created' }), {
       status: 201,
+      headers: defaultHeaders(allowOrigin(req, env)),
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: defaultHeaders(allowOrigin(req, env)),
     });
   }
 });
 
-// Get consultation details
-router.get('/api/consultations/:id', async (req: Request, env: Env) => {
-  const { id } = req.params;
-  
-  const stmt = env.DB.prepare(
-    `SELECT * FROM consultations WHERE id = ?`
-  );
-  
-  const result = await stmt.bind(id).first();
-  
-  if (!result) {
-    return new Response(JSON.stringify({ error: 'Consultation not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  return new Response(JSON.stringify(result), {
-    headers: { 'Content-Type': 'application/json' },
-  });
-});
-
-// Create Cloudflare Stream live input for consultation
 router.post('/api/stream/create-live-input', async (req: Request, env: Env) => {
   try {
-    const body = await req.json();
-    const { consultation_id } = body;
+    const { consultation_id } = await req.json();
 
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${env.STREAM_ACCOUNT_ID}/live_inputs`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${env.STREAM_API_TOKEN}`,
-          'Content-Type': 'application/json',
+    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${env.STREAM_ACCOUNT_ID}/live_inputs`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STREAM_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        meta: { name: `consultation-${consultation_id}` },
+        recording: {
+          mode: 'automatic',
+          timeoutSeconds: 0,
         },
-        body: JSON.stringify({
-          meta: {
-            name: `consultation-${consultation_id}`,
-          },
-          recording: {
-            mode: 'automatic',
-            timeoutSeconds: 0,
-          },
-        }),
-      }
-    );
+      }),
+    });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(JSON.stringify(data));
     }
 
     return new Response(JSON.stringify(data.result), {
-      headers: { 'Content-Type': 'application/json' },
       status: 201,
+      headers: defaultHeaders(allowOrigin(req, env)),
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      status: 500,
+      headers: defaultHeaders(allowOrigin(req, env)),
     });
   }
 });
 
-// Voice recognition and transcription webhook
-router.post('/api/speech/transcribe', async (req: Request, env: Env) => {
+router.post('/api/ai/triage', async (req: Request, env: Env) => {
   try {
-    const body = await req.json();
-    const { consultation_id, audio_data, voice_id } = body;
+    const { symptoms, history } = await req.json();
 
-    // Here you would integrate with Deepgram, AssemblyAI, or similar
-    // For now, we'll create a placeholder
+    const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un asistente clínico. Responde de forma breve, práctica y segura.',
+        },
+        {
+          role: 'user',
+          content: `Síntomas: ${symptoms}. Historia: ${history}`,
+        },
+      ],
+    });
 
-    const stmt = env.DB.prepare(
-      `UPDATE consultations SET notes = ? WHERE id = ?`
-    );
-    
-    await stmt.bind(`Transcription processed for voice ${voice_id}`, consultation_id).run();
-
-    return new Response(JSON.stringify({ 
-      status: 'transcribed',
-      consultation_id 
-    }), {
-      headers: { 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ result }), {
+      status: 200,
+      headers: defaultHeaders(allowOrigin(req, env)),
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      status: 500,
+      headers: defaultHeaders(allowOrigin(req, env)),
     });
   }
 });
 
-// Save anamnesis data
-router.post('/api/anamnesis/save', async (req: Request, env: Env) => {
-  try {
-    const body = await req.json();
-    const { 
-      consultation_id, 
-      chief_complaint, 
-      symptoms, 
-      signs, 
-      vital_signs 
-    } = body;
-
-    const anamnesis_id = crypto.randomUUID();
-    
-    const stmt = env.DB.prepare(
-      `INSERT INTO anamnesis 
-       (id, consultation_id, chief_complaint, symptoms_json, signs_json, vital_signs_json) 
-       VALUES (?, ?, ?, ?, ?, ?)`
-    );
-    
-    await stmt.bind(
-      anamnesis_id,
-      consultation_id,
-      chief_complaint,
-      JSON.stringify(symptoms),
-      JSON.stringify(signs),
-      JSON.stringify(vital_signs)
-    ).run();
-
-    return new Response(JSON.stringify({ id: anamnesis_id }), {
-      headers: { 'Content-Type': 'application/json' },
-      status: 201,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-});
-
-// Generate digital prescription
-router.post('/api/prescriptions/create', async (req: Request, env: Env) => {
-  try {
-    const body = await req.json();
-    const {
-      consultation_id,
-      doctor_id,
-      patient_id,
-      medication_name,
-      dosage,
-      frequency,
-      duration,
-      instructions,
-    } = body;
-
-    const prescription_id = crypto.randomUUID();
-    const qr_code = `QR_${prescription_id}`; // Generate actual QR code
-    
-    const stmt = env.DB.prepare(
-      `INSERT INTO prescriptions 
-       (id, consultation_id, doctor_id, patient_id, medication_name, dosage, frequency, duration, instructions, qr_code) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-    
-    await stmt.bind(
-      prescription_id,
-      consultation_id,
-      doctor_id,
-      patient_id,
-      medication_name,
-      dosage,
-      frequency,
-      duration,
-      instructions,
-      qr_code
-    ).run();
-
-    return new Response(JSON.stringify({ 
-      id: prescription_id,
-      qr_code 
-    }), {
-      headers: { 'Content-Type': 'application/json' },
-      status: 201,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-});
-
-// Alert for critical symptoms
-router.post('/api/alerts/create', async (req: Request, env: Env) => {
-  try {
-    const body = await req.json();
-    const {
-      patient_id,
-      consultation_id,
-      alert_type,
-      severity,
-      message,
-    } = body;
-
-    const alert_id = crypto.randomUUID();
-    
-    const stmt = env.DB.prepare(
-      `INSERT INTO alerts 
-       (id, patient_id, consultation_id, alert_type, severity, message) 
-       VALUES (?, ?, ?, ?, ?, ?)`
-    );
-    
-    await stmt.bind(
-      alert_id,
-      patient_id,
-      consultation_id,
-      alert_type,
-      severity,
-      message
-    ).run();
-
-    // Trigger notification (WhatsApp, etc.)
-    // await sendWhatsAppAlert(patient_id, message);
-
-    return new Response(JSON.stringify({ 
-      id: alert_id,
-      status: 'created' 
-    }), {
-      headers: { 'Content-Type': 'application/json' },
-      status: 201,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-});
-
-// 404 handler
-router.all('*', () => {
+router.all('*', (req: Request, env: Env) => {
   return new Response(JSON.stringify({ error: 'Not Found' }), {
     status: 404,
-    headers: { 'Content-Type': 'application/json' },
+    headers: defaultHeaders(allowOrigin(req, env)),
   });
 });
 
-export default router;
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return router.handle(request, env);
+  },
+};
