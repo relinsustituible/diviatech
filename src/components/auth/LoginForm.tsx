@@ -1,57 +1,82 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { extractToken, verifyToken } from '@/lib/auth';
-import { initializeStreamService } from '@/lib/cloudflare-stream';
+'use client';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method not allowed' });
-  }
+import { FormEvent, useState } from 'react';
+import { useRouter } from 'next/router';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
-  try {
-    const token = extractToken(req.headers.authorization || null);
-    const auth = token ? verifyToken(token) : null;
+export default function LoginForm() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-    if (!auth || auth.userType !== 'professional') {
-      return res.status(403).json({ success: false, message: 'Solo los profesionales pueden crear la sesión' });
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await axios.post('/api/auth/login', { email, password });
+
+      if (response.data.success) {
+        localStorage.setItem('authToken', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        toast.success('Inicio de sesión exitoso');
+
+        if (response.data.user.userType === 'professional') {
+          router.push('/dashboard/professional');
+        } else {
+          router.push('/dashboard/patient');
+        }
+      } else {
+        toast.error(response.data.message || 'Error al iniciar sesión');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error del servidor');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const { consultationId, description } = req.body;
-    if (!consultationId) {
-      return res.status(400).json({ success: false, message: 'Se requiere consultationId' });
-    }
+  return (
+    <form onSubmit={handleSubmit} className="mx-auto w-full max-w-md space-y-4">
+      <div>
+        <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
+          placeholder="tu@email.com"
+        />
+      </div>
 
-    const db = (req as any).env?.DB;
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'D1 no está configurado en este entorno' });
-    }
+      <div>
+        <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
+          Contraseña
+        </label>
+        <input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
+          placeholder="••••••••"
+        />
+      </div>
 
-    const streamService = initializeStreamService((req as any).env?.CLOUDFLARE_ACCOUNT_ID, (req as any).env?.CLOUDFLARE_API_TOKEN);
-    if (!streamService) {
-      return res.status(500).json({ success: false, message: 'Cloudflare Stream no está configurado' });
-    }
-
-    const streamId = await streamService.createLiveInput(consultationId, description || 'Teleconsulta');
-    if (!streamId) {
-      return res.status(500).json({ success: false, message: 'No se pudo crear el stream de videollamada' });
-    }
-
-    await db
-      .prepare(
-        `UPDATE consultations
-         SET cloudflare_stream_id = ?, cloudflare_stream_url = ?, status = 'in_progress', updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`
-      )
-      .bind(streamId, streamService.getStreamEmbedUrl(streamId), consultationId)
-      .run();
-
-    return res.status(201).json({
-      success: true,
-      message: 'Videollamada creada correctamente',
-      streamId,
-      embedUrl: streamService.getStreamEmbedUrl(streamId),
-    });
-  } catch (error) {
-    console.error('Stream create error:', error);
-    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
-  }
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-50"
+      >
+        {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+      </button>
+    </form>
+  );
 }
