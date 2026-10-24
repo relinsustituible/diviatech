@@ -19,6 +19,7 @@
     "bcryptjs": "^2.4.3",
     "framer-motion": "^10.16.0",
     "hls.js": "^1.4.0",
+    "itty-router": "^4.8.1",
     "jsonwebtoken": "^9.0.2",
     "next": "^14.0.0",
     "react": "^18.2.0",
