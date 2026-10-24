@@ -13,6 +13,27 @@ interface Env {
   NEXT_PUBLIC_API_URL?: string;
 }
 
+interface LoginBody {
+  email: string;
+  password: string;
+}
+
+interface ConsultationBody {
+  patient_id: string;
+  professional_id: string;
+  consultation_type: string;
+  scheduled_at: string;
+}
+
+interface CreateLiveInputBody {
+  consultation_id: string;
+}
+
+interface TriageBody {
+  symptoms: string;
+  history: string;
+}
+
 const router = Router();
 
 const defaultHeaders = (origin?: string | null) => ({
@@ -45,7 +66,7 @@ router.get('/api/health', (req: Request, env: Env) => {
 
 router.post('/api/auth/login', async (req: Request, env: Env) => {
   try {
-    const { email, password } = await req.json();
+    const { email, password } = (await req.json()) as LoginBody;
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: 'Email y password son requeridos.' }), {
@@ -102,7 +123,7 @@ router.get('/api/consultations', async (req: Request, env: Env) => {
 
 router.post('/api/consultations', async (req: Request, env: Env) => {
   try {
-    const { patient_id, professional_id, consultation_type, scheduled_at } = await req.json();
+    const { patient_id, professional_id, consultation_type, scheduled_at } = (await req.json()) as ConsultationBody;
     const id = crypto.randomUUID();
 
     await env.DB.prepare(`
@@ -124,7 +145,7 @@ router.post('/api/consultations', async (req: Request, env: Env) => {
 
 router.post('/api/stream/create-live-input', async (req: Request, env: Env) => {
   try {
-    const { consultation_id } = await req.json();
+    const { consultation_id } = (await req.json()) as CreateLiveInputBody;
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${env.STREAM_ACCOUNT_ID}/live_inputs`, {
       method: 'POST',
@@ -161,7 +182,7 @@ router.post('/api/stream/create-live-input', async (req: Request, env: Env) => {
 
 router.post('/api/ai/triage', async (req: Request, env: Env) => {
   try {
-    const { symptoms, history } = await req.json();
+    const { symptoms, history } = (await req.json()) as TriageBody;
 
     const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages: [
