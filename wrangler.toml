@@ -12,15 +12,15 @@ ALLOWED_ORIGINS = "http://localhost:3000,https://diviatech.pages.dev,https://div
 [[d1_databases]]
 binding = "DB"
 database_name = "divia-prod"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "1cfd224f-b45e-484b-a37d-a1d5adc673ce"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "REPLACE_WITH_SESSION_KV_NAMESPACE_ID"
+id = "d0b0051fe1904664ab51aa41d10195ba"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_CACHE_KV_NAMESPACE_ID"
+id = "a57eb9eadd1a415f9801b9b2bb39c8ea"
 
 [ai]
 binding = "AI"
