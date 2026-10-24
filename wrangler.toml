@@ -1,18 +1,26 @@
 name = "diviatech"
-main = "src/worker.js"
-compatibility_date = "2026-10-21"
-compatibility_flags = [ "nodejs_compat" ]
+main = "src/workers/index.ts"
+compatibility_date = "2026-10-24"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "production"
-JWT_SECRET = "change_this_to_a_secure_random_secret"
 NEXT_PUBLIC_APP_NAME = "Divia"
+NEXT_PUBLIC_API_URL = "https://diviatech.xear3d80.workers.dev"
+ALLOWED_ORIGINS = "http://localhost:3000,https://diviatech.pages.dev,https://diviatech.com"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "divia-prod"
-database_id = "4f9d66fa-7de4-4541-9540-1c49063a6f39"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "04d28c8978d64818a1bae349da1c3697"
+id = "REPLACE_WITH_SESSION_KV_NAMESPACE_ID"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_CACHE_KV_NAMESPACE_ID"
+
+[ai]
+binding = "AI"
