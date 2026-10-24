@@ -1,4 +1,4 @@
-name = "diviatech"
+name = "diviatechv1"
 main = "src/workers/index.ts"
 compatibility_date = "2026-10-24"
 compatibility_flags = ["nodejs_compat"]
