@@ -1,4 +1,4 @@
-name = "diviatechv1"
+name = "diviateh"
 main = "src/workers/index.ts"
 compatibility_date = "2026-10-24"
 compatibility_flags = ["nodejs_compat"]
@@ -6,8 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ENVIRONMENT = "production"
 NEXT_PUBLIC_APP_NAME = "Divia"
-NEXT_PUBLIC_API_URL = "https://diviatechv1.xear3d80.workers.dev"
-ALLOWED_ORIGINS = "http://localhost:3000,https://diviatechv1.pages.dev,https://diviatech.com"
+NEXT_PUBLIC_API_URL = "https://diviatech.xear3d80.workers.dev"
+ALLOWED_ORIGINS = https://diviatech.xear3d80.workers.dev"
 
 [[d1_databases]]
 binding = "DB"
